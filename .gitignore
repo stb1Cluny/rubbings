@@ -1,0 +1,7 @@
+node_modules/
+dist/
+# Model weights are downloaded by `npm run fetch-model` (and in CI); never committed.
+public/models/
+*.stl
+.DS_Store
+.claude/

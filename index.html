@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Turn a picture into a 3D-printable plate for crayon and pencil rubbings. Runs entirely in your browser."
+    />
+    <title>Rubbing Plate Maker</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23c8451f'/%3E%3Cpath d='M8 20q4-9 8 0t8 0' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div>
+        <h1>Rubbing Plate Maker</h1>
+        <p class="tagline">Turn a picture into a 3D-printable plate for crayon and pencil rubbings.</p>
+      </div>
+      <p class="private" title="No uploads, no tracking, no cookies. All processing happens on this device.">
+        Your picture never leaves this device
+      </p>
+    </header>
+
+    <nav class="steps" aria-label="Steps">
+      <button type="button" class="step" data-step="image" aria-current="step"><b>1</b> Image</button>
+      <button type="button" class="step" data-step="frame" disabled><b>2</b> Frame</button>
+      <button type="button" class="step" data-step="plate" disabled><b>3</b> Plate</button>
+    </nav>
+
+    <main>
+      <!-- Step 1 -->
+      <section id="step-image" class="panel" aria-labelledby="h-image">
+        <h2 id="h-image" class="sr-only">Choose an image</h2>
+        <div id="drop" class="drop">
+          <p class="drop-title">Drop a picture here</p>
+          <p>or paste one with <kbd>Ctrl</kbd>+<kbd>V</kbd></p>
+          <button type="button" id="choose" class="primary">Choose a file</button>
+          <input type="file" id="file" accept="image/*" hidden />
+        </div>
+        <form id="link-form" class="link-form">
+          <label for="link">Or load from a link</label>
+          <div class="row">
+            <input type="url" id="link" inputmode="url" placeholder="https://…" autocomplete="off" spellcheck="false" />
+            <button type="submit">Load</button>
+          </div>
+          <p class="hint">
+            Links only work when the picture's site allows it (Wikimedia Commons and Unsplash do). If a link is
+            refused, copy the picture and paste it here.
+          </p>
+        </form>
+        <p id="load-message" class="message" role="status" aria-live="polite"></p>
+        <p class="hint tips">Pictures with clear shapes and strong outlines make the best rubbings.</p>
+      </section>
+
+      <!-- Step 2 -->
+      <section id="step-frame" class="panel" aria-labelledby="h-frame" hidden>
+        <h2 id="h-frame" class="sr-only">Frame the picture</h2>
+        <div class="workspace">
+          <div class="stage">
+            <canvas id="crop" class="crop" tabindex="0" aria-label="Picture under the plate outline. Drag to move, scroll or pinch to zoom, arrow keys to nudge."></canvas>
+            <p class="hint">Drag to move · scroll or pinch to zoom</p>
+          </div>
+          <aside class="side">
+            <fieldset>
+              <legend>Outline</legend>
+              <div id="outlines" class="choices"></div>
+              <p id="outline-note" class="hint"></p>
+            </fieldset>
+            <fieldset id="orientation-field">
+              <legend>Orientation</legend>
+              <div class="segmented">
+                <label><input type="radio" name="orientation" value="portrait" checked /><span>Portrait</span></label>
+                <label><input type="radio" name="orientation" value="landscape" /><span>Landscape</span></label>
+              </div>
+            </fieldset>
+            <div class="field" id="size-field">
+              <label for="size">Size <span class="unit">(longest side, mm)</span></label>
+              <input type="number" id="size" min="30" max="300" step="5" value="100" />
+            </div>
+            <p id="dimensions" class="readout"></p>
+            <div class="field">
+              <label for="zoom">Zoom</label>
+              <input type="range" id="zoom" min="0" max="1" step="0.005" value="0" />
+            </div>
+            <button type="button" id="to-plate" class="primary wide">Make plate</button>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Step 3 -->
+      <section id="step-plate" class="panel" aria-labelledby="h-plate" hidden>
+        <h2 id="h-plate" class="sr-only">Adjust and download the plate</h2>
+        <div class="workspace">
+          <div class="stage">
+            <div class="stage-bar">
+              <div class="segmented" role="group" aria-label="View">
+                <label><input type="radio" name="view" value="plate" checked /><span>3D plate</span></label>
+                <label><input type="radio" name="view" value="rubbing" /><span>Rubbing</span></label>
+              </div>
+              <button type="button" id="reset-view" class="quiet">Reset view</button>
+            </div>
+            <div id="preview" class="preview"></div>
+            <div id="rubbing-wrap" class="preview paper" hidden>
+              <canvas id="rubbing" aria-label="Simulated rubbing of the plate"></canvas>
+            </div>
+            <p id="depth-status" class="message" role="status" aria-live="polite"></p>
+          </div>
+          <aside class="side">
+            <fieldset>
+              <legend>Bumpiness</legend>
+              <div class="field">
+                <label for="foreground">Foreground <output id="foreground-out"></output></label>
+                <input type="range" id="foreground" min="0" max="1" step="0.05" />
+              </div>
+              <div class="field">
+                <label for="background">Background <output id="background-out"></output></label>
+                <input type="range" id="background" min="0" max="1" step="0.05" />
+              </div>
+            </fieldset>
+            <fieldset id="depth-field">
+              <legend>Depth split</legend>
+              <div class="histogram">
+                <canvas id="histogram" width="256" height="48" aria-hidden="true"></canvas>
+                <input type="range" id="split" min="0.05" max="0.95" step="0.01" aria-label="Where background ends and foreground begins" />
+                <div class="ends"><span>far</span><span>near</span></div>
+              </div>
+              <div class="field">
+                <label for="outline">Subject outline <output id="outline-out"></output></label>
+                <input type="range" id="outline" min="0" max="1" step="0.05" />
+              </div>
+              <label class="check"><input type="checkbox" id="tint" /> Show depth bands</label>
+            </fieldset>
+            <fieldset>
+              <legend>Plate</legend>
+              <div class="field">
+                <label for="relief">Relief height <output id="relief-out"></output></label>
+                <input type="range" id="relief" min="0.4" max="1.6" step="0.1" />
+              </div>
+              <div class="field">
+                <label for="base">Base thickness <output id="base-out"></output></label>
+                <input type="range" id="base" min="1" max="4" step="0.2" />
+              </div>
+              <div class="field inline">
+                <label for="layer">Layer height</label>
+                <select id="layer">
+                  <option value="0.12">0.12 mm</option>
+                  <option value="0.16">0.16 mm</option>
+                  <option value="0.2" selected>0.20 mm</option>
+                  <option value="0.28">0.28 mm</option>
+                </select>
+              </div>
+              <div class="field inline">
+                <span id="raise-label">Raise</span>
+                <div class="segmented small" role="group" aria-labelledby="raise-label">
+                  <label><input type="radio" name="raise" value="dark" checked /><span>Dark areas</span></label>
+                  <label><input type="radio" name="raise" value="light" /><span>Light areas</span></label>
+                </div>
+              </div>
+              <label class="check"><input type="checkbox" id="border" /> Raised border line</label>
+            </fieldset>
+            <div class="downloads">
+              <button type="button" id="export" class="primary wide" disabled>Download STL</button>
+              <p id="export-estimate" class="readout"></p>
+              <button type="button" id="export-png" class="wide secondary" disabled title="Greyscale height image of the plate: white is raised, black is flat">
+                Download lightmap PNG
+              </button>
+            </div>
+            <p id="export-info" class="readout" role="status" aria-live="polite"></p>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <p>
+        Everything runs in your browser: no uploads, no tracking, no cookies. Print flat, relief side up, with
+        0.2 mm layers or finer.
+      </p>
+      <p>
+        <button type="button" id="coupon" class="linklike">Download a calibration coupon (STL)</button>
+        to find the line widths and heights your printer and crayons like best ·
+        <a href="licenses/index.html">Licences</a>
+      </p>
+    </footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

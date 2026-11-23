@@ -1,0 +1,30 @@
+{
+  "name": "rubbings",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turn a photo into a 3D-printable plate for crayon and pencil rubbings. Runs entirely in the browser.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "fetch-model": "node scripts/fetch-model.mjs",
+    "predev": "node scripts/fetch-model.mjs",
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "prebuild": "node scripts/fetch-model.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/verify-dist.mjs",
+    "preview": "vite preview",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.2",
+    "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.1"
+  }
+}
